@@ -8,3 +8,4 @@ make my life easier. YMMV.
 - title.sh: Terminal title manipulation
 - keepass-keyring: Start Keepass with a password stored in a system keyring
 - lock.sh: Cool lock screen
+- volume-control: Volume key handler
