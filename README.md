@@ -10,3 +10,4 @@ make my life easier. YMMV.
 - lock.sh: Cool lock screen
 - volume-control: Volume key handler
 - i3-status: Customized i3 status bar
+- i3-system-cmds: System command keybinds for i3
