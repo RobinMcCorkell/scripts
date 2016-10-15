@@ -1,0 +1,132 @@
+#!/bin/bash
+
+set -e
+
+tmuxinator::exists() {
+	[[ -e ~/.tmuxinator/$1.yml ]]
+}
+
+tmuxinator::rm() {
+	rm -f ~/.tmuxinator/$1.yml
+}
+
+tmuxinator::project() {
+	if ! [[ $1 ]]; then
+		false
+	fi
+	sanitized_name=${1%%.*}
+	if [[ ! -e ~/.tmuxinator/"$sanitized_name".yml ]]; then
+		install -D -m 644 ~/.tmuxinator/proj.yml.tmpl ~/.tmuxinator/"$sanitized_name".yml
+		sed -i "s/###proj###/${1//\//\\/}/g" ~/.tmuxinator/"$sanitized_name".yml
+		sed -i "s/###proj_sanitized###/${sanitized_name//\//\\/}/g" ~/.tmuxinator/"$sanitized_name".yml
+	fi
+	mux "$sanitized_name"
+}
+
+github::get_token() {
+	if [[ -z $github_token ]]; then
+		github_token=$(cat ~/.proj_githubtoken)
+	fi
+	echo "$github_token"
+}
+
+github::request() {
+	local token=$(github::get_token)
+	url="https://api.github.com${1}"
+	shift
+	curl -is -H "Accept: application/vnd.github.v3+json" -H "Authorization: token $token" "$@" "$url"
+}
+
+github::me() {
+	echo "Xenopathic"
+}
+
+cd ~/git/
+
+case "$1" in
+--help)
+	cat >&2 << EOF
+Usage: $0 <command> ...
+
+Commands:
+fork <person>/<repo>
+  Fork a repo on GitHub into personal account, and clone into a new project
+clone <repo> OR clone <person>/<repo>
+  Clone a repo into a new project
+new <project>
+  Create a new empty project
+rm <project>
+  Delete a project
+<project>
+  Open an existing project
+EOF
+	;;
+fork)
+	if ! [[ $2 ]]; then
+		echo "Usage: $0 fork <person>/<repo>" >&2
+		exit 1
+	fi
+
+	owner=${2%%/*}
+	repo=${2##*/}
+
+	if tmuxinator::exists $repo; then
+		echo "Project already exists" >&2
+		exit 1
+	fi
+
+	# create fork
+	echo "Forking..."
+	response=$(github::request /repos/${owner}/${repo}/forks -X POST)
+
+	sleep 5
+
+	git clone git@github.com:$(github::me)/${repo}.git
+	tmuxinator::project ${repo}
+	;;
+clone)
+	if ! [[ $2 ]]; then
+		echo "Usage: $0 clone <repo>" >&2
+		exit 1
+	fi
+
+	if [[ $2 =~ [a-zA-Z0-9_-]*/[a-zA-Z0-9_-.]* ]]; then
+		project=${2##*/}
+		url=git@github.com:$2
+	else
+		project=${2##*/}
+		project=${project%%.git}
+		url=$2
+	fi
+
+	git clone "$url"
+
+	tmuxinator::project "$project"
+	;;
+new)
+	if ! [[ $2 ]]; then
+		echo "Usage: $0 new <project>" >&2
+		exit 1
+	fi
+	mkdir "$2"
+	cd "$2"
+	git init
+
+	tmuxinator::project "$2"
+	;;
+rm)
+	if ! [[ $2 ]]; then
+		echo "Usage: $0 rm <project>" >&2
+		exit 1
+	fi
+	tmuxinator::rm $2
+	rm -rf "$2"
+	;;
+*)
+	if ! [[ -e "$1" ]]; then
+		echo "Project $1 does not exist" >&2
+		exit 1
+	fi
+	tmuxinator::project "$1"
+	;;
+esac
