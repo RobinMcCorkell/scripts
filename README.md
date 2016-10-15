@@ -9,3 +9,4 @@ make my life easier. YMMV.
 - keepass-keyring: Start Keepass with a password stored in a system keyring
 - lock.sh: Cool lock screen
 - volume-control: Volume key handler
+- i3-status: Customized i3 status bar
