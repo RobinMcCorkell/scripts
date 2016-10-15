@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+import os
+import secretstorage
+import argparse
+import getpass
+import subprocess
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '--update',
+    help='Update the keyring',
+    action='store_true'
+)
+parser.add_argument(
+    'db',
+    help='Path to the Keepass database'
+)
+parser.set_defaults(update=False)
+
+args = parser.parse_args()
+db = os.path.realpath(args.db)
+
+bus = secretstorage.dbus_init()
+collection = secretstorage.get_default_collection(bus)
+attributes = {
+    'application': 'keepass',
+    'db': db
+}
+
+if args.update:
+    password = getpass.getpass()
+    collection.create_item(
+        'Keepass Master Password for {}'.format(db),
+        attributes,
+        password,
+        replace=True
+    )
+else:
+    item = next(collection.search_items(attributes))
+    password = item.get_secret().decode('ascii')
+
+    proc = subprocess.Popen(
+        ['keepass', db, '--pw-stdin', '--minimize'],
+        stdin=subprocess.PIPE,
+        universal_newlines=True
+    )
+    proc.stdin.write('{}\n'.format(password))
